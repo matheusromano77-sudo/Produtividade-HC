@@ -74,6 +74,7 @@
   .deal-list{overflow-y:auto;margin-top:10px;-webkit-overflow-scrolling:touch}
   .deal{padding:14px 6px;border-bottom:1px solid var(--line);font-size:16px;cursor:pointer}
   .deal:active{color:var(--teal)}
+  .deal.other{color:var(--teal);font-weight:600}
   .step-view{padding-top:6px}
   .step-deal{font-family:var(--mono);font-weight:700;font-size:20px;margin-bottom:2px}
   .step-sub{font-size:13px;color:var(--ink-soft);margin-bottom:18px}
@@ -137,6 +138,7 @@
   <!-- set % + category -->
   <div id="stepView" class="step-view" style="display:none">
     <div class="step-deal" id="stepDeal"></div>
+    <input class="task-input" id="otherDeal" placeholder="Nome do projeto" autocomplete="off" style="display:none;margin:2px 0 12px">
     <div class="step-sub">Quanto do seu dia nesse deal? (aprox.)</div>
     <div class="stepper">
       <button id="minus">−</button>
@@ -165,7 +167,7 @@ const CATS = ["Prep de pitch","Teaser","IM","Modelo / Valuation","Research / Com
   "Due diligence","Negociação / SPA","Call cliente","Call contraparte","Gestão / Admin","Outros"];
 const PALETTE = ["#0E6E63","#C7791B","#3A6EA5","#8A5A83","#5B8C3E","#B5514E","#2E8B8B","#9C7A2E","#6C5CE0","#4A5B58"];
 
-let state = { person:null, entries:[], draftPct:25, draftCat:null, draftDeal:null };
+let state = { person:null, entries:[], draftPct:25, draftCat:null, draftDeal:null, isOther:false };
 
 // safe storage (funciona hospedado; no preview do Claude degrada sem quebrar)
 const store = {
@@ -242,12 +244,22 @@ function buildDealList(filter=""){
   const list=$("dealList"); list.innerHTML="";
   DEALS.filter(d=>d.toLowerCase().includes(filter.toLowerCase())).forEach(d=>{
     const el=document.createElement("div"); el.className="deal"; el.textContent=d;
-    el.onclick=()=>{ state.draftDeal=d; state.draftPct=25; state.draftCat=""; renderStep(); showStep(); $("taskInput").value=""; };
+    el.onclick=()=>pickDeal(d,false);
     list.appendChild(el);
   });
+  const o=document.createElement("div"); o.className="deal other"; o.textContent="＋ Outro (não está na lista)";
+  o.onclick=()=>pickDeal("",true);
+  list.appendChild(o);
+}
+function pickDeal(name,isOther){
+  state.draftDeal=name; state.isOther=isOther; state.draftPct=25; state.draftCat="";
+  renderStep(); showStep(); $("taskInput").value="";
+  const inp=$("otherDeal");
+  if(isOther){ inp.style.display="block"; inp.value=""; setTimeout(()=>inp.focus(),200); }
+  else { inp.style.display="none"; }
 }
 function renderStep(){
-  $("stepDeal").textContent=state.draftDeal;
+  $("stepDeal").textContent = state.isOther ? "Novo projeto" : state.draftDeal;
   $("stepVal").innerHTML=state.draftPct+"<small>%</small>";
   const q=$("quick"); q.innerHTML="";
   [["¼",25],["½",50],["¾",75],["Dia todo",100]].forEach(([lbl,v])=>{
@@ -283,8 +295,11 @@ $("search").oninput=e=>buildDealList(e.target.value);
 $("taskInput").oninput=e=>{ state.draftCat=e.target.value; };
 $("minus").onclick=()=>step(-5);
 $("plus").onclick=()=>step(5);
+$("otherDeal").oninput=e=>{ state.draftDeal=e.target.value; };
 $("confirm").onclick=()=>{
-  state.entries.push({deal:state.draftDeal,pct:state.draftPct,cat:state.draftCat});
+  const name=(state.draftDeal||"").trim();
+  if(!name){ showToast("Digite o nome do projeto."); return; }
+  state.entries.push({deal:name,pct:state.draftPct,cat:state.draftCat});
   saveDraft(); render(); closeSheet();
 };
 $("sendBtn").onclick=send;
