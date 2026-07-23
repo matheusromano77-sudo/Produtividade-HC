@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>Registro do dia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ---------- CONFIG: cole aqui a URL do seu backend (Apps Script / etc). Vazio = modo copiar. ---------- */
+  :root{
+    --ink:#13211F; --ink-soft:#4A5B58; --line:#E2E6E4; --paper:#F1F3F2; --surface:#FFFFFF;
+    --teal:#0E6E63; --teal-deep:#0A4F47; --full:#1F9D57; --over:#C7791B;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    --mono:"Space Grotesk",var(--sans);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--paper);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+  }
+  .wrap{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+  header{padding:22px 20px 10px}
+  .date{font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  h1{font-family:var(--mono);font-weight:700;font-size:26px;margin:2px 0 0;letter-spacing:-.01em}
+  /* who */
+  .who{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px 4px}
+  .who button{font-family:var(--sans);font-size:14px;padding:9px 14px;border:1px solid var(--line);
+    background:var(--surface);border-radius:999px;color:var(--ink-soft);cursor:pointer;transition:.15s}
+  .who button.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+  /* meter */
+  .meter-card{margin:14px 20px 0;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+  .meter-top{display:flex;align-items:baseline;justify-content:space-between}
+  .meter-num{font-family:var(--mono);font-weight:700;font-size:44px;line-height:1;letter-spacing:-.02em}
+  .meter-num small{font-size:18px;font-weight:500;color:var(--ink-soft);margin-left:2px}
+  .meter-lbl{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:right}
+  .bar{margin-top:14px;height:16px;border-radius:8px;background:var(--paper);display:flex;overflow:hidden;border:1px solid var(--line)}
+  .seg{height:100%;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+  .hint{margin-top:10px;font-size:13px;color:var(--ink-soft);min-height:18px}
+  .hint.full{color:var(--full);font-weight:600}
+  .hint.over{color:var(--over);font-weight:600}
+  /* lines */
+  .lines{padding:14px 20px 0;flex:1}
+  .line{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .line .body{flex:1;min-width:0}
+  .line .nm{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .line .cat{font-size:12.5px;color:var(--ink-soft)}
+  .line .pct{font-family:var(--mono);font-weight:700;font-size:18px}
+  .line .rm{border:none;background:none;color:var(--ink-soft);font-size:22px;padding:0 2px;cursor:pointer;line-height:1}
+  .empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:26px 10px;border:1px dashed var(--line);border-radius:14px}
+  /* add + send */
+  .add{margin:2px 20px 0;width:calc(100% - 40px);padding:15px;border:1px dashed var(--teal);color:var(--teal);
+    background:transparent;border-radius:14px;font-family:var(--sans);font-size:15px;font-weight:600;cursor:pointer}
+  .footer{position:sticky;bottom:0;padding:14px 20px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,rgba(241,243,242,0),var(--paper) 26%)}
+  .send{width:100%;padding:17px;border:none;border-radius:14px;background:var(--teal-deep);color:#fff;
+    font-family:var(--sans);font-weight:700;font-size:16px;cursor:pointer;transition:.15s}
+  .send:disabled{opacity:.4}
+  /* sheet */
+  .scrim{position:fixed;inset:0;background:rgba(19,33,31,.4);opacity:0;pointer-events:none;transition:.2s;z-index:20}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;background:var(--surface);
+    border-radius:22px 22px 0 0;transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+    z-index:21;padding:8px 20px calc(20px + env(safe-area-inset-bottom));max-height:88vh;display:flex;flex-direction:column}
+  .sheet.open{transform:translateY(0)}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 10px}
+  .sheet h2{font-family:var(--mono);font-size:19px;margin:2px 0 12px}
+  .search{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:16px;font-family:var(--sans)}
+  .deal-list{overflow-y:auto;margin-top:10px;-webkit-overflow-scrolling:touch}
+  .deal{padding:14px 6px;border-bottom:1px solid var(--line);font-size:16px;cursor:pointer}
+  .deal:active{color:var(--teal)}
+  .step-view{padding-top:6px}
+  .step-deal{font-family:var(--mono);font-weight:700;font-size:20px;margin-bottom:2px}
+  .step-sub{font-size:13px;color:var(--ink-soft);margin-bottom:18px}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:22px;margin:6px 0 4px}
+  .stepper button{width:58px;height:58px;border-radius:50%;border:1px solid var(--line);background:var(--paper);
+    font-size:30px;font-weight:500;color:var(--ink);cursor:pointer;line-height:1}
+  .stepper .val{font-family:var(--mono);font-weight:700;font-size:46px;min-width:120px;text-align:center}
+  .stepper .val small{font-size:22px;color:var(--ink-soft)}
+  .quick{display:flex;gap:8px;justify-content:center;margin:14px 0 20px}
+  .quick button{flex:1;padding:10px 0;border:1px solid var(--line);background:var(--surface);border-radius:10px;
+    font-size:14px;color:var(--ink-soft);cursor:pointer}
+  .quick button.on{border-color:var(--teal);color:var(--teal);font-weight:600;background:#F0F7F5}
+  .cat-lbl{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+  .task-input{width:100%;padding:14px;border:1px solid var(--line);border-radius:12px;font-size:16px;
+    font-family:var(--sans);color:var(--ink);margin-bottom:18px}
+  .task-input:focus{outline:none;border-color:var(--teal)}
+  .confirm{width:100%;padding:16px;border:none;border-radius:13px;background:var(--teal);color:#fff;
+    font-weight:700;font-size:16px;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:var(--ink);color:#fff;
+    padding:13px 20px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:40;max-width:90%}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="date" id="date"></div>
+    <h1>Registro do dia</h1>
+  </header>
+
+  <div class="who" id="who"></div>
+
+  <div class="meter-card">
+    <div class="meter-top">
+      <div class="meter-num" id="total">0<small>%</small></div>
+      <div class="meter-lbl">do seu<br>dia alocado</div>
+    </div>
+    <div class="bar" id="bar"></div>
+    <div class="hint" id="hint">Adicione os deals em que você trabalhou hoje.</div>
+  </div>
+
+  <div class="lines" id="lines"></div>
+
+  <button class="add" id="addBtn">+ Adicionar deal ao dia</button>
+
+  <div class="footer">
+    <button class="send" id="sendBtn" disabled>Enviar dia</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <!-- pick deal -->
+  <div id="pickView">
+    <h2>Qual deal?</h2>
+    <input class="search" id="search" placeholder="Buscar deal…" autocomplete="off">
+    <div class="deal-list" id="dealList" style="max-height:56vh"></div>
+  </div>
+  <!-- set % + category -->
+  <div id="stepView" class="step-view" style="display:none">
+    <div class="step-deal" id="stepDeal"></div>
+    <div class="step-sub">Quanto do seu dia nesse deal? (aprox.)</div>
+    <div class="stepper">
+      <button id="minus">−</button>
+      <div class="val" id="stepVal">25<small>%</small></div>
+      <button id="plus">+</button>
+    </div>
+    <div class="quick" id="quick"></div>
+    <div class="cat-lbl">Principal tarefa</div>
+    <input class="task-input" id="taskInput" placeholder="O que você fez? (ex.: rodar modelo, call com investidor)" autocomplete="off">
+    <button class="confirm" id="confirm">Adicionar ao dia</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CONFIG = {
+  ENDPOINT: "https://script.google.com/macros/s/AKfycbxdB9l1aFgmR6ae484EjXwDYDADE-pI8sK7qNbnKY4lcM6Kitoxd8QJbQ7LKYQ-bC84/exec"  // backend Apps Script ligado
+};
+
+const DEALS = ["Greencare","Varifarma [ARG]","São Lucas (Hemomed)","Med.IQ","Smart Dent","Oncosite",
+  "Biotécnica | 2026","Labcor","EFF (M&A)","Adapt","Bhio Supply","Scitech 2025","Confiance Medical",
+  "Hidrolight","Barrfab","Samtronic","Systhex","Archo Medical","Lifesil","Braile"];
+const TEAM = ["Romano","Fred","Mauricio Kropp","Frederico Traina","Henrique Motta","Maria Hasson","André Savi","Sami"];
+const CATS = ["Prep de pitch","Teaser","IM","Modelo / Valuation","Research / Comps","Outreach","NBO / LOI",
+  "Due diligence","Negociação / SPA","Call cliente","Call contraparte","Gestão / Admin","Outros"];
+const PALETTE = ["#0E6E63","#C7791B","#3A6EA5","#8A5A83","#5B8C3E","#B5514E","#2E8B8B","#9C7A2E","#6C5CE0","#4A5B58"];
+
+let state = { person:null, entries:[], draftPct:25, draftCat:null, draftDeal:null };
+
+// safe storage (funciona hospedado; no preview do Claude degrada sem quebrar)
+const store = {
+  get(k){ try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+};
+
+const $ = id => document.getElementById(id);
+const todayKey = () => "reg_" + new Date().toISOString().slice(0,10);
+
+function initDate(){
+  const d = new Date();
+  $("date").textContent = d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+}
+function initWho(){
+  const saved = store.get("person");
+  if(saved && TEAM.includes(saved)) state.person = saved;
+  const el = $("who"); el.innerHTML="";
+  TEAM.forEach(p=>{
+    const b=document.createElement("button");
+    b.textContent=p; if(p===state.person) b.className="on";
+    b.onclick=()=>{ state.person=p; store.set("person",p); initWho(); render(); };
+    el.appendChild(b);
+  });
+}
+function loadDraft(){
+  const d = store.get(todayKey());
+  if(d && d.person===state.person && Array.isArray(d.entries)) state.entries=d.entries;
+}
+function saveDraft(){ store.set(todayKey(),{person:state.person,entries:state.entries}); }
+
+function total(){ return state.entries.reduce((s,e)=>s+e.pct,0); }
+
+function render(){
+  const t=total();
+  $("total").innerHTML = t + "<small>%</small>";
+  // bar
+  const bar=$("bar"); bar.innerHTML="";
+  const denom=Math.max(100,t);
+  state.entries.forEach((e,i)=>{
+    const s=document.createElement("div"); s.className="seg";
+    s.style.width=(e.pct/denom*100)+"%"; s.style.background=PALETTE[i%PALETTE.length];
+    bar.appendChild(s);
+  });
+  // hint
+  const h=$("hint"); h.className="hint";
+  if(t===0) h.textContent="Adicione os deals em que você trabalhou hoje.";
+  else if(t<100){ h.textContent="Faltam "+(100-t)+"% pra fechar o dia."; }
+  else if(t===100){ h.textContent="Dia fechado. ✓"; h.className="hint full"; }
+  else { h.textContent="Passou de 100% — tudo bem, o sistema normaliza."; h.className="hint over"; }
+  // lines
+  const L=$("lines"); L.innerHTML="";
+  if(!state.person){ L.innerHTML='<div class="empty">Toque no seu nome acima pra começar.</div>'; }
+  else if(state.entries.length===0){ L.innerHTML='<div class="empty">Nenhum deal ainda hoje.</div>'; }
+  else state.entries.forEach((e,i)=>{
+    const row=document.createElement("div"); row.className="line";
+    row.innerHTML=`<div class="dot" style="background:${PALETTE[i%PALETTE.length]}"></div>
+      <div class="body"><div class="nm">${e.deal}</div><div class="cat">${e.cat||"—"}</div></div>
+      <div class="pct">${e.pct}%</div><button class="rm" aria-label="Remover">×</button>`;
+    row.querySelector(".rm").onclick=()=>{ state.entries.splice(i,1); saveDraft(); render(); };
+    L.appendChild(row);
+  });
+  $("sendBtn").disabled = !(state.person && state.entries.length>0);
+  $("addBtn").style.display = state.person ? "block" : "none";
+}
+
+// ---- sheet ----
+function openSheet(){ buildDealList(); showPick(); $("scrim").classList.add("open"); $("sheet").classList.add("open"); }
+function closeSheet(){ $("scrim").classList.remove("open"); $("sheet").classList.remove("open"); $("search").value=""; }
+function showPick(){ $("pickView").style.display="block"; $("stepView").style.display="none"; }
+function showStep(){ $("pickView").style.display="none"; $("stepView").style.display="block"; }
+
+function buildDealList(filter=""){
+  const list=$("dealList"); list.innerHTML="";
+  DEALS.filter(d=>d.toLowerCase().includes(filter.toLowerCase())).forEach(d=>{
+    const el=document.createElement("div"); el.className="deal"; el.textContent=d;
+    el.onclick=()=>{ state.draftDeal=d; state.draftPct=25; state.draftCat=""; renderStep(); showStep(); $("taskInput").value=""; };
+    list.appendChild(el);
+  });
+}
+function renderStep(){
+  $("stepDeal").textContent=state.draftDeal;
+  $("stepVal").innerHTML=state.draftPct+"<small>%</small>";
+  const q=$("quick"); q.innerHTML="";
+  [["¼",25],["½",50],["¾",75],["Dia todo",100]].forEach(([lbl,v])=>{
+    const b=document.createElement("button"); b.textContent=lbl;
+    if(state.draftPct===v) b.className="on";
+    b.onclick=()=>{ state.draftPct=v; renderStep(); }; q.appendChild(b);
+  });
+}
+function step(delta){ state.draftPct=Math.max(5,Math.min(100,state.draftPct+delta)); renderStep(); }
+
+// ---- send ----
+function showToast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2600); }
+async function send(){
+  const payload={ date:new Date().toISOString().slice(0,10), person:state.person, submittedAt:new Date().toISOString(), entries:state.entries };
+  if(CONFIG.ENDPOINT){
+    $("sendBtn").disabled=true; $("sendBtn").textContent="Enviando…";
+    try{
+      await fetch(CONFIG.ENDPOINT,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      showToast("Dia enviado ✓"); state.entries=[]; saveDraft(); render();
+    }catch(e){ showToast("Falha ao enviar — tente de novo."); }
+    $("sendBtn").textContent="Enviar dia";
+  } else {
+    const txt = payload.date+" · "+state.person+"\n"+state.entries.map(e=>`${e.pct}% ${e.deal} (${e.cat||"—"})`).join("\n");
+    try{ await navigator.clipboard.writeText(txt); showToast("Sem backend: resumo copiado. Cole onde consolidar."); }
+    catch(e){ showToast(txt); }
+  }
+}
+
+// ---- wire ----
+$("addBtn").onclick=openSheet;
+$("scrim").onclick=closeSheet;
+$("search").oninput=e=>buildDealList(e.target.value);
+$("taskInput").oninput=e=>{ state.draftCat=e.target.value; };
+$("minus").onclick=()=>step(-5);
+$("plus").onclick=()=>step(5);
+$("confirm").onclick=()=>{
+  state.entries.push({deal:state.draftDeal,pct:state.draftPct,cat:state.draftCat});
+  saveDraft(); render(); closeSheet();
+};
+$("sendBtn").onclick=send;
+
+initDate(); initWho(); loadDraft(); render();
+</script>
+</body>
+</html>
